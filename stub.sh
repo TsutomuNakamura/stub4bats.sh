@@ -75,6 +75,11 @@ stub_and_echo() {
 stub_and_eval() {
   local cmd="$1"
 
+  if [ "${#STUB_INDEX[@]}" -eq 0 ]; then
+      mkdir -p /tmp/__stub_sh__
+      rm -f /tmp/__stub_sh__/*
+  fi
+
   # Setup empty list of active stubs.
   if [ -z "$STUB_ACTIVE_STUBS" ]; then STUB_ACTIVE_STUBS=(); fi
 
@@ -99,7 +104,7 @@ stub_and_eval() {
   fi
 
   # Create the stub.
-  eval "$( printf "%s" "${cmd}() {  __stub_call \"${cmd}\" \$@;  $2;}")"
+  eval "$( printf "%s" "${cmd}() {  __stub_call \"${cmd}\" \"\$@\";  $2;}")"
 }
 
 
@@ -233,20 +238,24 @@ stub_called_with_times() {
   local cmd="$1"
 
   shift 1
-  local args="$@"
-  if [ "$args" = "" ]; then args="<none>"; fi
+  declare -a args=("$@")
+  if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
   local count=0
   local index="$(__stub_index "$cmd")"
   if [ -n "$index" ]; then
-    eval "local calls=(\"\${STUB_${index}_CALLS[@]}\")"
-    for call in "${calls[@]}"; do
-      if [ "$call" = "$args" ]; then ((count++)); fi
-    done
+    # Create base64 argments
+    local args64=""
+    for (( i = 0; i < ${#args[@]}; ++i )) {
+      [ "$i" -ne 0 ] && args64+=","
+      args64+="$(base64 <<< "${args[i]}")"
+    }
+    count="$(grep -w -c "$args64" /tmp/__stub_sh__/${index})"
   fi
 
   echo $count
 }
+
 
 
 # Public: Find out if stub has been called exactly the given number of times
@@ -361,12 +370,17 @@ restore() {
 __stub_call() {
   local cmd="$1"
   shift 1
-  local args="$@"
-  if [ "$args" = "" ]; then args="<none>"; fi
+  declare -a args=("$@")
+  if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
   local index="$(__stub_index "$cmd")"
   if [ -n "$index" ]; then
-    eval "STUB_${index}_CALLS+=(\"\$args\")"
+    local args64=""
+    for ((i = 0; i < ${#args[@]}; ++i)) {
+      [ "$i" -ne 0 ] && args64+=","
+      args64+="$(base64 <<< "${args[i]}")"
+    }
+    echo "$args64" >> /tmp/__stub_sh__/${index}
   fi
 }
 
@@ -398,10 +412,10 @@ __stub_register() {
 
   # Add stub to index.
   STUB_INDEX+=("${cmd}=${STUB_NEXT_INDEX}")
-  eval "STUB_${STUB_NEXT_INDEX}_CALLS=()"
+  #eval "STUB_${STUB_NEXT_INDEX}_CALLS=()"
 
   # Increment stub count.
-  ((STUB_NEXT_INDEX++))
+  ((++STUB_NEXT_INDEX))
 }
 
 # Private: Cleans out and removes a stub's call list, and removes stub from
