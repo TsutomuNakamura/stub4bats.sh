@@ -26,6 +26,11 @@
 # IN THE SOFTWARE.
 #
 
+declare -A STUB_DICTIONARY=()
+
+# TODO:
+##/tmp/__stub_sh_${EUID}_${PPID}__/*
+rm -rf /tmp/__stub_sh_${EUID}__/*
 
 # Public: Stub given command.
 #
@@ -75,31 +80,17 @@ stub_and_echo() {
 stub_and_eval() {
   local cmd="$1"
 
-  # Setup empty list of active stubs.
-  if [ -z "$STUB_ACTIVE_STUBS" ]; then STUB_ACTIVE_STUBS=(); fi
-
-  # If stubbing a function, store non-stubbed copy of it required for restore.
-  if [ -n "$(command -v "$cmd")" ]; then
-    if [ -z "$(command -v "non_stubbed_${cmd}")" ]; then
-      if [[ "$(type "$cmd" | head -1)" == *"is a function" ]]; then
-        local source="$(type "$cmd" | tail -n +2)"
-        source="${source/$cmd/non_stubbed_${cmd}}"
-        eval "$source"
-      fi
-    fi
+#  if [ "${#STUB_INDEX[@]}" -eq 0 ]; then
+  if [ "${#STUB_DICTIONARY[@]}" -eq 0 ]; then
+      mkdir -p /tmp/__stub_sh_${EUID}__
+      rm -f /tmp/__stub_sh_${EUID}__/*
   fi
 
   # Prepare stub index and call list for this stub.
   __stub_register "$cmd"
 
-  # Keep track of what is currently stubbed to ensure restore only acts on
-  # actual stubs.
-  if [[ " ${STUB_ACTIVE_STUBS[@]} " != *" $cmd "* ]]; then
-    STUB_ACTIVE_STUBS+=("$cmd")
-  fi
-
   # Create the stub.
-  eval "$( printf "%s" "${cmd}() {  __stub_call \"${cmd}\" \$@;  $2;}")"
+  eval "$( printf "%s" "${cmd}() {  __stub_call \"${cmd}\" \"\$@\";  $2;}")"
 }
 
 
@@ -139,7 +130,7 @@ stub_called_with() {
   local cmd="$1"
   shift 1
 
-  if [ "$(stub_called_with_times "$cmd" $@)" -lt 1 ]; then
+  if [ "$(stub_called_with_times "$cmd" "$@")" -lt 1 ]; then
     return 1
   fi
 }
@@ -158,11 +149,10 @@ stub_called_with() {
 stub_called_times() {
   local cmd="$1"
 
-  local index="$(__stub_index "$1")"
   local count=0
 
-  if [ -n "$index" ]; then
-    eval "count=\"\${#STUB_${index}_CALLS[@]}\""
+  if [ -f /tmp/__stub_sh_${EUID}__/${cmd} ]; then
+    count=$(wc -l < /tmp/__stub_sh_${EUID}__/${cmd})
   fi
 
   echo $count
@@ -233,21 +223,26 @@ stub_called_with_times() {
   local cmd="$1"
 
   shift 1
-  local args="$@"
-  if [ "$args" = "" ]; then args="<none>"; fi
+  declare -a args=("$@")
+  if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
+
+  echo "$(date) -- cmd=${cmd}, args=${args[@]}" >> /var/tmp/lll.log
 
   local count=0
-  local index="$(__stub_index "$cmd")"
-  if [ -n "$index" ]; then
-    eval "local calls=(\"\${STUB_${index}_CALLS[@]}\")"
-    for call in "${calls[@]}"; do
-      if [ "$call" = "$args" ]; then ((count++)); fi
-    done
+  #local index="$(__stub_index "$cmd")"
+  if [ -f /tmp/__stub_sh_${EUID}__/${cmd} ]; then
+    # Create base64 argments
+    local args64=""
+    for (( i = 0; i < ${#args[@]}; ++i )) {
+      [ "$i" -ne 0 ] && args64+=","
+      args64+="$(base64 <<< "${args[i]}")"
+    }
+    echo "grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})" >> /var/tmp/lll.log
+    count="$(grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})"
   fi
 
   echo $count
 }
-
 
 # Public: Find out if stub has been called exactly the given number of times
 # with specified arguments.
@@ -328,25 +323,19 @@ stub_called_with_at_most_times() {
 restore() {
   local cmd="$1"
 
-  # Don't do anything if the command isn't currently stubbed.
-  if [[ " ${STUB_ACTIVE_STUBS[@]} " != *" $1 "* ]]; then
+  if [ -z "${STUB_DICTIONARY[${cmd}]}" ]; then
     return 0
   fi
 
   # Remove stub functions.
   unset -f "$cmd"
 
-  # Remove stub from list of active stubs.
-  STUB_ACTIVE_STUBS=(${STUB_ACTIVE_STUBS[@]/$cmd/})
-
   # If stub was for a function, restore the original function.
-  if type "non_stubbed_${cmd}" &>/dev/null; then
-    local original_type="$(type "non_stubbed_${cmd}" | head -1)"
-    if [[ "$original_type" == *"is a function" ]]; then
-      local source="$(type "non_stubbed_$cmd" | tail -n +2)"
-      source="${source/non_stubbed_${cmd}/$cmd}"
-      eval "$source"
-      unset -f "non_stubbed_${cmd}"
+  if [ -n "${#STUB_DICTIONARY[${cmd}]}" ]; then
+    if [ "${STUB_DICTIONARY[${cmd}]}" != "<command>" ]; then
+      # If it is a function...
+      eval "${STUB_DICTIONARY[${cmd}]}"
+      unset STUB_DICTIONARY[${cmd}]
     fi
   fi
 }
@@ -361,59 +350,54 @@ restore() {
 __stub_call() {
   local cmd="$1"
   shift 1
-  local args="$@"
-  if [ "$args" = "" ]; then args="<none>"; fi
+  declare -a args=("$@")
+  if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
-  local index="$(__stub_index "$cmd")"
-  if [ -n "$index" ]; then
-    eval "STUB_${index}_CALLS+=(\"\$args\")"
+  if [ -n "${STUB_DICTIONARY[${cmd}]}" ]; then
+    local args64=""
+    for ((i = 0; i < ${#args[@]}; ++i)) {
+      [ "$i" -ne 0 ] && args64+=","
+      args64+="$(base64 <<< "${args[i]}")"
+    }
+    echo "$args64" >> /tmp/__stub_sh_${EUID}__/${cmd}
   fi
 }
-
-
-# Private: Get index value of stub. Required to access list of stub calls.
-__stub_index() {
-  local cmd="$1"
-
-  for item in ${STUB_INDEX[@]}; do
-    if [[ "$item" = "${cmd}="* ]]; then
-      local index="$item"
-      index="${index/${cmd}=/}"
-      echo "$index"
-    fi
-  done
-}
-
 
 # Private: Prepare for the creation of a new stub. Adds stub to index and
 # sets up an empty call list.
 __stub_register() {
   local cmd="$1"
 
-  if [ -z "$STUB_NEXT_INDEX" ]; then STUB_NEXT_INDEX=0; fi
-  if [ -z "$STUB_INDEX" ]; then STUB_INDEX=(); fi
-
   # Clean up after any previous stub for the same command.
   __stub_clean "$cmd"
 
-  # Add stub to index.
-  STUB_INDEX+=("${cmd}=${STUB_NEXT_INDEX}")
-  eval "STUB_${STUB_NEXT_INDEX}_CALLS=()"
-
-  # Increment stub count.
-  ((STUB_NEXT_INDEX++))
+  # If stubbing a function, store non-stubbed copy of it required for restore.
+  if [ -z "${STUB_DICTIONARY[${cmd}]}" ]; then
+    local type_of_object="$(type "$cmd" 2> /dev/null | head -1)"
+    if [[ "$type_of_object" == *"is a function" ]]; then
+      STUB_DICTIONARY[${cmd}]="$(type "$cmd" | tail -n +2)"
+    else
+      STUB_DICTIONARY[${cmd}]="<command>"
+    fi
+  fi
 }
 
 # Private: Cleans out and removes a stub's call list, and removes stub from
 # index.
 __stub_clean() {
   local cmd="$1"
-  local index="$(__stub_index "$cmd")"
 
   # Remove all relevant details from any previously existing stub for the same
   # command.
-  if [ -n "$index" ]; then
-    eval "unset STUB_${index}_CALLS"
-    STUB_INDEX=(${STUB_INDEX[@]/${cmd}=*/})
+  if [ -n "${STUB_DICTIONARY[${cmd}]}" ]; then
+    if [ "${STUB_DICTIONARY[${cmd}]}" = "<command>" ]; then
+
+      unset STUB_DICTIONARY[${cmd}]
+    else
+      # Restore original function
+      unset -f ${cmd}
+      eval "${STUB_DICTIONARY[${cmd}]}"
+    fi
   fi
+  rm -f /tmp/__stub_sh_${EUID}__/${cmd}
 }

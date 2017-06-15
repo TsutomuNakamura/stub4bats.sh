@@ -6,12 +6,16 @@ source "test-helper.sh"
 #
 
 # Sets up stub index, stub call list, and adds stub to index.
+hoge () { echo test; }
+
 __stub_register "uname"
 __stub_register "top"
-assert 'echo ${STUB_INDEX[@]}' 'uname=0 top=1'
-assert 'echo ${STUB_INDEX[0]}' 'uname=0'
-assert 'echo ${STUB_INDEX[1]}' 'top=1'
-assert 'echo $STUB_NEXT_INDEX' "2"
+__stub_register "hoge"
+
+assert 'echo ${#STUB_DICTIONARY[@]}' 3
+assert 'echo ${STUB_DICTIONARY[uname]}' '<command>'
+assert 'echo ${STUB_DICTIONARY[top]}' '<command>'
+assert 'echo ${STUB_DICTIONARY[hoge]}' 'hoge () { echo test }'
 
 # Note: There seems to be no possible way to validate if a empty array
 # variable has been set, as it appears to be empty/null/undefined whatever I

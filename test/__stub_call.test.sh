@@ -6,16 +6,17 @@ source "test-helper.sh"
 #
 
 # Adds call to stub call list.
-STUB_INDEX=("uname=0")
-STUB_0_CALLS=()
+stub uname
+
 __stub_call "uname"
 __stub_call "uname" -r
 __stub_call "uname" -r -a
-assert 'echo ${STUB_0_CALLS[@]}' "<none> -r -r -a"
-assert 'echo ${STUB_0_CALLS[0]}' "<none>"
-assert 'echo ${STUB_0_CALLS[1]}' "-r"
-assert 'echo ${STUB_0_CALLS[2]}' "-r -a"
 
+assert "wc -l < /tmp/__stub_sh_${EUID}__/uname" 3
+assert "grep -xc '$(base64 <<< "<none>")' /tmp/__stub_sh_${EUID}__/uname" 1
+assert "grep -xc '$(base64 <<< "-r")' /tmp/__stub_sh_${EUID}__/uname" 1
+assert "grep -xc '$(base64 <<< "-r"),$(base64 <<< "-a")' /tmp/__stub_sh_${EUID}__/uname" 1
+assert "grep -xc '$(base64 <<< "-r"),$(base64 <<< "-c")' /tmp/__stub_sh_${EUID}__/uname" 0
 
 # End of tests.
 assert_end "__stub_call()"

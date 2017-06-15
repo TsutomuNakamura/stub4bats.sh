@@ -46,7 +46,8 @@ restore "uname"
 stub "uname"
 uname -r "foo bar"
 assert_raises 'stub_called_with "uname" -r "foo bar"' 0
-assert_raises 'stub_called_with "uname" -r foo bar' 0
+##assert_raises 'stub_called_with "uname" -r foo bar' 0
+assert_raises 'stub_called_with "uname" -r foo bar' 1
 restore "uname"
 
 
