@@ -221,6 +221,7 @@ stub_called_at_most_times() {
 # Return 0 (success).
 stub_called_with_times() {
   local cmd="$1"
+  local i=
 
   shift 1
   declare -a args=("$@")
@@ -237,6 +238,7 @@ stub_called_with_times() {
       [ "$i" -ne 0 ] && args64+=","
       args64+="$(base64 <<< "${args[i]}")"
     }
+
     echo "grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})" >> /var/tmp/lll.log
     count="$(grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})"
   fi
@@ -351,6 +353,7 @@ __stub_call() {
   local cmd="$1"
   shift 1
   declare -a args=("$@")
+  local i=
   if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
   if [ -n "${STUB_DICTIONARY[${cmd}]}" ]; then
@@ -359,6 +362,7 @@ __stub_call() {
       [ "$i" -ne 0 ] && args64+=","
       args64+="$(base64 <<< "${args[i]}")"
     }
+
     echo "$args64" >> /tmp/__stub_sh_${EUID}__/${cmd}
   fi
 }
