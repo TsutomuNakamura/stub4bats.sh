@@ -232,8 +232,8 @@ stub_called_at_most_times() {
 stub_called_with_times() {
   local cmd="$1"
   local i=
-
   shift 1
+
   declare -a args=("$@")
   if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
@@ -241,10 +241,10 @@ stub_called_with_times() {
   #local index="$(__stub_index "$cmd")"
   if [ -f /tmp/__stub_sh_${EUID}__/${cmd} ]; then
     # Create base64 argments
-    local args64=""
+    local args64
     for (( i = 0; i < ${#args[@]}; ++i )) {
-      [ "$i" -ne 0 ] && args64+=","
-      args64+="$(base64 <<< "${args[i]}")"
+      [[ "$i" -ne 0 ]] && args64+=","
+      args64+="$(base64 -w 0 <<< "${args[i]}")"
     }
     count="$(grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})"
   fi
@@ -363,10 +363,10 @@ __stub_call() {
   if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
   if [ -n "${STUB_DICTIONARY[${cmd}]}" ]; then
-    local args64=""
+    local args64
     for ((i = 0; i < ${#args[@]}; ++i)) {
       [ "$i" -ne 0 ] && args64+=","
-      args64+="$(base64 <<< "${args[i]}")"
+      args64+="$(base64 -w 0 <<< "${args[i]}")"
     }
 
     echo "$args64" >> /tmp/__stub_sh_${EUID}__/${cmd}
