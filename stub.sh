@@ -26,8 +26,6 @@
 # IN THE SOFTWARE.
 #
 
-declare -A STUB_DICTIONARY=()
-
 # TODO:
 ##/tmp/__stub_sh_${EUID}_${PPID}__/*
 rm -rf /tmp/__stub_sh_${EUID}__/*
@@ -227,8 +225,6 @@ stub_called_with_times() {
   declare -a args=("$@")
   if [ "${#args[@]}" -eq 0 ]; then args+=("<none>"); fi
 
-  echo "$(date) -- cmd=${cmd}, args=${args[@]}" >> /var/tmp/lll.log
-
   local count=0
   #local index="$(__stub_index "$cmd")"
   if [ -f /tmp/__stub_sh_${EUID}__/${cmd} ]; then
@@ -238,8 +234,6 @@ stub_called_with_times() {
       [ "$i" -ne 0 ] && args64+=","
       args64+="$(base64 <<< "${args[i]}")"
     }
-
-    echo "grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})" >> /var/tmp/lll.log
     count="$(grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})"
   fi
 
@@ -374,6 +368,10 @@ __stub_register() {
 
   # Clean up after any previous stub for the same command.
   __stub_clean "$cmd"
+
+  if ! declare -p STUB_DICTIONARY &>- ; then
+    declare -g -A STUB_DICTIONARY
+  fi
 
   # If stubbing a function, store non-stubbed copy of it required for restore.
   if [ -z "${STUB_DICTIONARY[${cmd}]}" ]; then
