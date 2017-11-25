@@ -1,4 +1,6 @@
-# stub.sh [![Build Status](https://api.travis-ci.org/jimeh/stub.sh.svg)](https://travis-ci.org/jimeh/stub.sh)
+# stub.sh
+
+This repository is clone of [jimeh/stub.sh](https://github.com/jimeh/stub.sh). Thanks for great works.
 
 Helpers for bash script testing to stub/fake binaries and functions. Includes
 support for validating number of stub calls, and/or if stub has been called
