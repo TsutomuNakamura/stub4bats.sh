@@ -269,7 +269,7 @@ stub_called_with_exactly_times() {
   local count="$2"
   shift 2
 
-  if [ "$(stub_called_with_times "$cmd" $@)" != "$count" ]; then
+  if [ "$(stub_called_with_times "$cmd" "$@")" != "$count" ]; then
     return 1
   fi
 }
@@ -292,7 +292,7 @@ stub_called_with_at_least_times() {
   local count="$2"
   shift 2
 
-  if [ "$(stub_called_with_times "$cmd" $@)" -lt "$count" ]; then
+  if [ "$(stub_called_with_times "$cmd" "$@")" -lt "$count" ]; then
     return 1
   fi
 }
@@ -315,7 +315,7 @@ stub_called_with_at_most_times() {
   local count="$2"
   shift 2
 
-  if [ "$(stub_called_with_times "$cmd" $@)" -gt "$count" ]; then
+  if [ "$(stub_called_with_times "$cmd" "$@")" -gt "$count" ]; then
     return 1
   fi
 }
