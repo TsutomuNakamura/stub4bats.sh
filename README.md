@@ -1,4 +1,4 @@
-# stub.sh
+# stub4bats.sh
 
 This repository is clone of [jimeh/stub.sh](https://github.com/jimeh/stub.sh). Thanks for great works.
 
