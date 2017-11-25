@@ -41,8 +41,12 @@ rm -rf /tmp/__stub_sh_${EUID}__/*
 # Returns nothing.
 stub() {
   local redirect="null"
-  if [ "$2" = "stdout" ] || [ "$2" = "STDOUT" ]; then redirect=""; fi
-  if [ "$2" = "stderr" ] || [ "$2" = "STDERR" ]; then redirect="stderr"; fi
+
+  if [[ "${2^^}" = "STDOUT" ]]; then
+    redirect=""
+  elif [[ "${2^^}" = "STDERR" ]]; then
+    redirect="stderr"
+  fi
 
   stub_and_echo "$1" "$1 stub: \$@" "$redirect"
 }
@@ -60,8 +64,12 @@ stub() {
 # Returns nothing.
 stub_and_echo() {
   local redirect=""
-  if [ "$3" = "stderr" ] || [ "$3" = "STDERR" ]; then redirect=" 1>&2"; fi
-  if [ "$3" = "null" ]; then redirect=" &>/dev/null"; fi
+
+  if [[ "${3^^}" = "STDERR" ]]; then
+    redirect=" 1>&2"
+  elif [[ "$3" = "null" ]]; then
+    redirect=" &>/dev/null";
+  fi
 
   stub_and_eval "$1" "echo \"$2\"$redirect"
 }
@@ -77,6 +85,10 @@ stub_and_echo() {
 # Returns nothing.
 stub_and_eval() {
   local cmd="$1"
+
+  if ! declare -p STUB_DICTIONARY &>- ; then
+    declare -g -A STUB_DICTIONARY
+  fi
 
 #  if [ "${#STUB_INDEX[@]}" -eq 0 ]; then
   if [ "${#STUB_DICTIONARY[@]}" -eq 0 ]; then
@@ -369,12 +381,8 @@ __stub_register() {
   # Clean up after any previous stub for the same command.
   __stub_clean "$cmd"
 
-  if ! declare -p STUB_DICTIONARY &>- ; then
-    declare -g -A STUB_DICTIONARY
-  fi
-
   # If stubbing a function, store non-stubbed copy of it required for restore.
-  if [ -z "${STUB_DICTIONARY[${cmd}]}" ]; then
+  if [[ -z "${STUB_DICTIONARY[${cmd}]}" ]]; then
     local type_of_object="$(type "$cmd" 2> /dev/null | head -1)"
     if [[ "$type_of_object" == *"is a function" ]]; then
       STUB_DICTIONARY[${cmd}]="$(type "$cmd" | tail -n +2)"
@@ -391,8 +399,8 @@ __stub_clean() {
 
   # Remove all relevant details from any previously existing stub for the same
   # command.
-  if [ -n "${STUB_DICTIONARY[${cmd}]}" ]; then
-    if [ "${STUB_DICTIONARY[${cmd}]}" = "<command>" ]; then
+  if [[ -n "${STUB_DICTIONARY[${cmd}]}" ]]; then
+    if [[ "${STUB_DICTIONARY[${cmd}]}" = "<command>" ]]; then
 
       unset STUB_DICTIONARY[${cmd}]
     else
