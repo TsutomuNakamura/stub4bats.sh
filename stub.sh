@@ -86,7 +86,7 @@ stub_and_echo() {
 stub_and_eval() {
   local cmd="$1"
 
-  if ! declare -p STUB_DICTIONARY &>- ; then
+  if ! declare -p STUB_DICTIONARY &> /dev/null; then
     declare -g -A STUB_DICTIONARY
   fi
 
