@@ -378,10 +378,6 @@ __stub_call() {
 __stub_register() {
   local cmd="$1"
 
-  # Clean up after any previous stub for the same command.
-  __stub_clean "$cmd"
-
-  # If stubbing a function, store non-stubbed copy of it required for restore.
   if [[ -z "${STUB_DICTIONARY[${cmd}]}" ]]; then
     local type_of_object="$(type "$cmd" 2> /dev/null | head -1)"
     if [[ "$type_of_object" == *"is a function" ]]; then
@@ -390,6 +386,7 @@ __stub_register() {
       STUB_DICTIONARY[${cmd}]="<command>"
     fi
   fi
+  rm -f /tmp/__stub_sh_${EUID}__/${cmd}
 }
 
 # Private: Cleans out and removes a stub's call list, and removes stub from
