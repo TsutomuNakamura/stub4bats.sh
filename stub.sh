@@ -28,7 +28,7 @@
 
 # TODO:
 ##/tmp/__stub_sh_${EUID}_${PPID}__/*
-rm -rf /tmp/__stub_sh_${EUID}__/*
+command rm -rf /tmp/__stub_sh_${EUID}__/*
 
 # Public: Stub given command.
 #
@@ -71,7 +71,8 @@ stub_and_echo() {
     redirect=" &>/dev/null";
   fi
 
-  stub_and_eval "$1" "echo \"$2\"$redirect"
+  # stub_and_eval "$1" "echo \"$2\"$redirect"
+  stub_and_eval "$1" "command echo \"$2\"$redirect"
 }
 
 
@@ -92,15 +93,15 @@ stub_and_eval() {
 
 #  if [ "${#STUB_INDEX[@]}" -eq 0 ]; then
   if [ "${#STUB_DICTIONARY[@]}" -eq 0 ]; then
-      mkdir -p /tmp/__stub_sh_${EUID}__
-      rm -f /tmp/__stub_sh_${EUID}__/*
+      command mkdir -p /tmp/__stub_sh_${EUID}__
+      command rm -f /tmp/__stub_sh_${EUID}__/*
   fi
 
   # Prepare stub index and call list for this stub.
   __stub_register "$cmd"
 
   # Create the stub.
-  eval "$( printf "%s" "${cmd}() {  __stub_call \"${cmd}\" \"\$@\";  $2;}")"
+  eval "$( command printf "%s" "${cmd}() {  __stub_call \"${cmd}\" \"\$@\";  $2;}")"
 }
 
 
@@ -158,14 +159,13 @@ stub_called_with() {
 # it doesn't match..
 stub_called_times() {
   local cmd="$1"
-
   local count=0
 
   if [ -f /tmp/__stub_sh_${EUID}__/${cmd} ]; then
-    count=$(wc -l < /tmp/__stub_sh_${EUID}__/${cmd})
+    count=$(command wc -l < /tmp/__stub_sh_${EUID}__/${cmd})
   fi
 
-  echo $count
+  command echo $count
 }
 
 
@@ -244,12 +244,12 @@ stub_called_with_times() {
     local args64
     for (( i = 0; i < ${#args[@]}; ++i )) {
       [[ "$i" -ne 0 ]] && args64+=","
-      args64+="$(base64 -w 0 <<< "${args[i]}")"
+      args64+="$(command base64 -w 0 <<< "${args[i]}")"
     }
-    count="$(grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})"
+    count="$(command grep -xc "${args64}" /tmp/__stub_sh_${EUID}__/${cmd})"
   fi
 
-  echo $count
+  command echo $count
 }
 
 # Public: Find out if stub has been called exactly the given number of times
@@ -366,10 +366,10 @@ __stub_call() {
     local args64
     for ((i = 0; i < ${#args[@]}; ++i)) {
       [ "$i" -ne 0 ] && args64+=","
-      args64+="$(base64 -w 0 <<< "${args[i]}")"
+      args64+="$(command base64 -w 0 <<< "${args[i]}")"
     }
 
-    echo "$args64" >> /tmp/__stub_sh_${EUID}__/${cmd}
+    command echo "$args64" >> /tmp/__stub_sh_${EUID}__/${cmd}
   fi
 }
 
@@ -378,15 +378,18 @@ __stub_call() {
 __stub_register() {
   local cmd="$1"
 
+  # Clean up after any previous stub for the same command.
+  #__stub_clean "$cmd"
+
   if [[ -z "${STUB_DICTIONARY[${cmd}]}" ]]; then
-    local type_of_object="$(type "$cmd" 2> /dev/null | head -1)"
+    local type_of_object="$(type "$cmd" 2> /dev/null | command head -1)"
     if [[ "$type_of_object" == *"is a function" ]]; then
-      STUB_DICTIONARY[${cmd}]="$(type "$cmd" | tail -n +2)"
+      STUB_DICTIONARY[${cmd}]="$(type "$cmd" | command tail -n +2)"
     else
       STUB_DICTIONARY[${cmd}]="<command>"
     fi
   fi
-  rm -f /tmp/__stub_sh_${EUID}__/${cmd}
+  command rm -f /tmp/__stub_sh_${EUID}__/${cmd}
 }
 
 # Private: Cleans out and removes a stub's call list, and removes stub from
@@ -406,5 +409,5 @@ __stub_clean() {
       eval "${STUB_DICTIONARY[${cmd}]}"
     fi
   fi
-  rm -f /tmp/__stub_sh_${EUID}__/${cmd}
+  command rm -f /tmp/__stub_sh_${EUID}__/${cmd}
 }
