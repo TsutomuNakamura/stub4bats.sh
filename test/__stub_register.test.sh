@@ -8,6 +8,9 @@ source "test-helper.sh"
 # Sets up stub index, stub call list, and adds stub to index.
 hoge () { echo test; }
 
+# TODO: declare as assosiated array for initialization
+declare -g -A STUB_DICTIONARY
+
 __stub_register "uname"
 __stub_register "top"
 __stub_register "hoge"
